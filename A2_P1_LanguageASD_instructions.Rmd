@@ -75,7 +75,7 @@ Load necessary libraries : what will you need?
 
 ```{r Load Libraries, include = FALSE}
 library(pacman)
-p_load(ggplot2, tidyverse, lme4, lmerTest)
+p_load(ggplot2, tidyverse, lme4, lmerTest, caret)
 
 install.packages("MuMIn")
 library(MuMIn)

@@ -2,3 +2,10 @@
 .Rhistory
 .RData
 .Ruserdata
+demo_test.csv
+demo_train.csv
+LU_test.csv
+LU_train.csv
+token_test.csv
+token_train.csv
+A1_clean_data.csv
