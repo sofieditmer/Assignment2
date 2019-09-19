@@ -1,0 +1,340 @@
+---
+title: "Assignment 2 - Language Development in ASD - Part 1 - Explaining development"
+author: "Sofie Ditmer"
+date: "12.09.19"
+output: html_document
+---
+    
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(include = FALSE)
+```
+
+# Assignment 2
+In this assignment you will have to discuss a few important questions (given the data you have). More details below. The assignment submitted to the teachers consists of:
+- a report answering and discussing the questions (so we can assess your conceptual understanding and ability to explain and critically reflect)
+- a link to a git repository with all the code (so we can assess your code)
+
+Part 1 - Basic description of language development
+- Describe your sample (n, age, gender, clinical and cognitive features of the two groups) and critically assess whether the groups (ASD and TD) are balanced
+- Describe linguistic development (in terms of MLU over time) in TD and ASD children (as a function of group). 
+- Describe how parental use of language (in terms of MLU) changes over time. What do you think is going on?
+- Include individual differences in your model of language development (in children). Identify the best model.
+
+Part 2 - Model comparison
+- Discuss the differences in performance of your model in training and testing data
+- Which individual differences should be included in a model that maximizes your ability to explain/predict new data?
+- Predict a new kid's performance (Bernie) and discuss it against expected performance of the two groups
+
+Part 3 - Simulations to plan a new study
+- Report and discuss a power analyses identifying how many new kids you would need to replicate the results
+
+The following involves only Part 1.
+
+## Learning objectives
+
+- Summarize and report data and models
+- Critically apply mixed effects (or multilevel) models
+- Explore the issues involved in feature selection
+
+
+# Quick recap
+Autism Spectrum Disorder is often related to language impairment. However, this phenomenon has not been empirically traced in detail:
+i) relying on actual naturalistic language production,  ii) over extended periods of time.
+
+We therefore videotaped circa 30 kids with ASD and circa 30 comparison kids (matched by linguistic performance at visit 1) for ca. 30 minutes of naturalistic interactions with a parent. We repeated the data collection 6 times per kid, with 4 months between each visit. We transcribed the data and counted: 
+i) the amount of words that each kid uses in each video. Same for the parent.
+ii) the amount of unique words that each kid uses in each video. Same for the parent.
+iii) the amount of morphemes per utterance (Mean Length of Utterance) displayed by each child in each video. Same for the parent. 
+
+This data is in the file you prepared in the previous class. 
+
+NB. A few children have been excluded from your datasets. We will be using them next week to evaluate how good your models are in assessing the linguistic development in new participants.
+
+This RMarkdown file includes 
+1) questions (see above). Questions have to be answered/discussed in a separate document that you have to directly send to the teachers.
+2) A break down of the questions into a guided template full of hints for writing the code to solve the exercises. Fill in the code and the paragraphs as required. Then report your results in the doc for the teachers.
+
+REMEMBER that you will have to have a github repository for the code and send the answers to Kenneth and Riccardo without code (but a link to your github/gitlab repository). This way we can check your code, but you are also forced to figure out how to report your analyses :-)
+
+Before we get going, here is a reminder of the issues you will have to discuss in your report:
+
+1- Describe your sample (n, age, gender, clinical and cognitive features of the two groups) and critically assess whether the groups (ASD and TD) are balanced
+2- Describe linguistic development (in terms of MLU over time) in TD and ASD children (as a function of group). 
+3- Describe how parental use of language (in terms of MLU) changes over time. What do you think is going on?
+4- Include individual differences in your model of language development (in children). Identify the best model.
+
+# Let's go
+
+### Loading the relevant libraries
+
+Load necessary libraries : what will you need?
+- e.g. something to deal with the data
+- e.g. mixed effects models
+- e.g. something to plot with
+
+```{r Load Libraries, include = FALSE}
+library(pacman)
+p_load(ggplot2, tidyverse, lme4, lmerTest)
+
+install.packages("MuMIn")
+library(MuMIn)
+
+```
+
+### Define your working directory and load the data
+If you created a project for this class and opened this Rmd file from within that project, your working directory is your project directory.
+
+If you opened this Rmd file outside of a project, you will need some code to find the data:
+- Create a new variable called locpath (localpath)
+- Set it to be equal to your working directory
+- Move to that directory (setwd(locpath))
+- Load the data you saved last time (use read_csv(fileName))
+
+```{r Load Data, include = FALSE}
+data <- read.csv("A1_clean_data.csv")
+
+#Investigate the data
+summary(data)
+```
+
+### Characterize the participants (Exercise 1)
+
+Identify relevant variables: participants demographic characteristics, diagnosis, ADOS, Verbal IQ, Non Verbal IQ, Socialization, Visit, Number of words used, Number of unique words used, mean length of utterance in both child and parents.
+
+Make sure the variables are in the right format.
+
+Describe the characteristics of the two groups of participants and whether the two groups are well matched.
+
+```{r descriptive stats, include = FALSE}
+#We count the number of partisipants and their number of visits in order to check if anyone is missing
+count(data, vars = SUBJ)
+
+#We only want one data point per participant. Therefore, we use subset() 
+visit1_data <- subset(data, VISIT == 1)
+
+summary(visit1_data)
+
+#We can see that there are 29 kids with ASD and 32 kids who are TD. Furthermore, we can see that there 
+#are 10 females and 51 males
+
+#Now we use pipes and the group_by() function to identify all of the variables we want
+group_by(visit1_data, Diagnosis) %>% 
+  dplyr::summarise(
+    number=n(), 
+    females = sum(Gender == "F"), 
+    Age = round(mean(Age, na.rm = T), 2),
+    Socialization = mean(Socialization, na.rm = T),
+    ADOS = mean(ADOS, na.rm = T),
+    MOT_MLU = mean(MOT_MLU, na.rm = T),
+    CHI_MLU = mean(CHI_MLU, na.rm = T),
+    non_verbal_iq = mean(MullenRaw, na.rm = T),
+    verbal_iq = mean(ExpressiveLangRaw, na.rm = T),
+    NumberOfWords = mean(tokens_CHI, na.rm = T),
+    NumberOfUniqueWords = mean(types_CHI, na.rm = T))
+    
+```
+
+[REPORT THE RESULTS]
+The sample included mostly young (mean = 27 year old) white males (51 out of 61).
+Overall the sample includes 29 with autism spectrum disorder (ASD) and 32 typically developing (TD) partisipants. The ADOS for ASD was as expected higher than for TD. However, socialization was higher for TD than ASD. Overall the mean lenght of utterance for child and mother was somewhat similar for ASD and TD. Verbal IQ, unique words used and total words was all higher for PD than ASD. There seem to be no big difference between ASD and TD for non verbal IQ.
+
+## Let's test hypothesis 1: Children with ASD display a language impairment  (Exercise 2)
+
+### Hypothesis: The child's MLU changes: i) over time, ii) according to diagnosis
+
+Let's start with a simple mixed effects linear model
+
+Remember to plot the data first and then to run a statistical test.
+- Which variable(s) should be included as fixed factors?
+- Which variable(s) should be included as random factors?
+
+```{r ex2, include = FALSE}
+#First I change CHI_MLU into a numeric instead of a factor, otherwise I will not be able to make a plot
+data$CHI_MLU <- as.numeric(data$CHI_MLU)
+
+#I change the variable SUBJ to a factor
+data$SUBJ <- as.factor(data$SUBJ)
+
+#Now we make a plot in order to test the hypothesis, that children with ASD display a language impairment
+ggplot(data = data, aes(x = VISIT, y = CHI_MLU, group = SUBJ, color = SUBJ)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F) +
+  theme_classic() +
+  facet_wrap(.~Diagnosis)
+
+#NB! facet_wrap() = a facet is when you have more plots. We are telling the model that the columns should be the different values of diagnosis
+
+#We can see that there is way more variance in the ASD-kids - they are much more different from each other than the TD-kids. This is typically what we see when we compare normal indiviudals with clinincal individuals. 
+
+#Now we can make the mixed effect linear model. We use lmer() to make a lmodel (lmer is for mixed effects models because it includes random effects) of the relation between MLU of kids and certain predictors. We use * to indicate an interaction effect, because the change of MLU will depend on the number of visits and the diagonins, but diagnosis and visit will depend on each other (interaction effect). By using * we tell the model that these two predictors are dependnt on each other, which means that the change of visits will depend on Diagnosisi and vice versa. Every child is "unique" to a certain extent, which is why we add random intercepts for each child. Doing so, we are telling the model that the uniqueness of each child is added to the intercept/starting point of the child. But, we also expect the children to develop in different ways, which is why we add random slopes as well. This way we tell the model that each child is going to develop in their own direction. This way we tell the model that each child has a unique slope. By using 0 instead of 1 in the random slope we are telling the model that the intercept and the slope for each kid are related. Do we gain anything by telling the model that the kids will develop differently? Yes, when we compare models we are using a null-model and comparing it with an alternative model using anova, and then we get the distance between the two models in likelihood. We can then see that the p-value in the anova is going to be the same as the p-value in our lmer() model. Mixed effects models take into account that each individual is unique by using random intercepts and random slopes. However, we should not trust the data too much - the model is going to change the individual subjects a little bit, because it is trying to make the data fit into the model. This is especially the case for unusual data points - the model is going to "pull" that data point towards the tendency that we see for all of the other data points. Mixed models allow us to take all of the data and the tendencies they show to interpret one data point, which is nice, because we cannot trust the data alone. 
+
+model <- lmer(CHI_MLU ~ VISIT*Diagnosis + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+summary(model)
+
+```
+
+How would you evaluate whether the model is a good model?
+```{r ex2 evaluate, include = FALSE}
+#We make a null-model and an alternative model and use anova to compare them. 
+null_model <- lmer(CHI_MLU ~ VISIT + Diagnosis + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+alt_model <- lmer(CHI_MLU ~ VISIT*Diagnosis + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+#Now we compare the two models
+anova(null_model, alt_model)
+
+#Because we do not get any R-squared value, we use this function to get out R-values
+r.squaredGLMM(alt_model)
+
+#R2m is how much variance the fixed effects explain and R2c is how much variance the whole model explains (not as useful)
+
+```
+
+Not too good, right? Let's check whether a growth curve model is better.
+Remember: a growth curve model assesses whether changes in time can be described by linear, or quadratic, or cubic (or... etc.) components.
+First build the different models, then compare them to see which one is better.
+
+```{r ex2 growth curve, include = FALSE}
+
+```
+
+Exciting right? Let's check whether the model is doing an alright job at fitting the data. Plot the actual CHI_MLU data against the predictions of the model fitted(model). 
+
+```{r}
+#We generate the predictions that our model would predict
+prediction <- fitted(alt_model)
+
+#We add the predictions to our data frame
+data$predictions <- prediction
+
+#We make a ggplot, plotting the predictions against the actual values (CHI_MLU) to see how well our model is predicting the data
+ggplot(data, aes(x=predictions, y=CHI_MLU, group=Diagnosis, color = Diagnosis))+geom_point()+geom_smooth(method = lm) + theme_classic()
+
+#Here we can see that our model becomes better over time. 
+```
+
+Now it's time to report our results.
+Remember to report:
+- the estimates for each predictor (beta estimate, standard error, p-value)
+- A plain word description of the results
+- A plot of your model's predictions (and some comments on whether the predictions are sensible)
+
+[REPORT THE RESULTS]
+Linguistic development of children MLU is affected by visit (b = 0.1, SD = 0.026, p < 0.05) and diagnosis (b = -0.22, SD = 0.17, p < 0.05) and their interaction (b = 0.25, SD = 0.036, p < 0.05). Overall the model's fixed effects explains 34.29% of the variance, which isn't an optimal model, but is significantly better than the null model.
+Overall the predictions of the model seem to get better as the MLU gets higher (over time)
+
+## Let's test hypothesis 2: Parents speak equally to children with ASD and TD (Exercise 3)
+
+### Hypothesis: Parental MLU changes: i) over time, ii) according to diagnosis
+
+```{r ex3, include = FALSE}
+#We start by making a plot in order to test the hypothesis, that parents speak equally to children with ASD and TD
+ggplot(data = data, aes(x = VISIT, y = MOT_MLU, group = SUBJ, color = SUBJ)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F) +
+  theme_classic() +
+  facet_wrap(.~Diagnosis)
+
+#Now we create a mixed effect linear model testing the hypothesis
+model2 <- lmer(MOT_MLU ~ VISIT*Diagnosis + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+summary(model2)
+
+#Now we test how good this model is compared to a null-model using anova
+null_model2<- lmer(MOT_MLU ~ VISIT + Diagnosis + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+anova(null_model2, model2)
+
+#Our model is not significant, which means that the parents speak equally to children with ASD and TD according to our model. Thus, the MLU for parents is not affected by the diagnosis and the number of visits. 
+```
+
+[REPORT THE RESULTS]
+
+According to our comparison of the null-model and the alternative model, it appears that the parent MLU is affected by Diagnosis and Visit as main effects. This is probably becayse the parents change their MLU relative to the child's MLU. However, the parent MLU does not appear to be affected by the interaction effect between the number of visits and the diagnosis.
+
+Parent MLU is affected by visit, (b = 0.09, SD = 0.02, t(110) = 31.8 , p < 0.001), and diagnosis, (b = 0.36, SD = 0.14, t(111) = 4.5, p < 0.05) but probably not by the interaction effect of visit and diagnosis (b = 0.04, SD = 0.03, t (112.19) = 1.3, p = 0.2)
+
+### Adding new variables (Exercise 4)
+
+Your task now is to figure out how to best describe the children linguistic trajectory. The dataset contains a bunch of additional demographic, cognitive and clinical variables (e.g.verbal and non-verbal IQ). Try them out and identify the statistical models that best describes your data (that is, the children's MLU). Describe how you selected the best model and send the code to run the model to Riccardo and Kenneth.
+
+
+```{r ex4, include = FALSE}
+#Now we make different models and then we compare them and see which best describes the children's linguistic trajectory
+
+#Our null-model is now including the interaction effect because that was better than just using the effects as main effects according to our anova in the precious exercise:
+null_model <- lmer(CHI_MLU ~ VISIT*Diagnosis + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+model1 <- lmer(CHI_MLU ~ VISIT*Diagnosis + MOT_MLU + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+               
+model2 <- lmer(CHI_MLU ~ VISIT*Diagnosis*MOT_MLU + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+model3 <- lmer(CHI_MLU ~ VISIT*Diagnosis + types_CHI + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+model4 <- lmer(CHI_MLU ~ VISIT*Diagnosis*types_CHI + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+model5 <- lmer(CHI_MLU ~ VISIT*Diagnosis + ExpressiveLangRaw + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+model6 <- lmer(CHI_MLU ~ VISIT*Diagnosis*ExpressiveLangRaw + (1|SUBJ) + (0 + VISIT|SUBJ), data = data)
+
+#Now we can compare the models. First we compare the null-model with model1
+anova(null_model, model1)
+
+#We can see that model1 is significantly better at predicting the data compared to the null-model
+#Now we compare model 1 with model 2
+anova(model1, model2)
+
+#We can see that model 2 is not better than model 1. This means that we now compare model 3 against model 1
+
+anova(model1, model3)
+
+#We can see that model 3 is better than model 1. This means that we now compare model 3 to model 4
+anova(model3, model4)
+
+#We can see that model 4 is better than model 5, which means that we now compare model 4 with model 5
+anova(model4, model5)
+
+#This does not work. Instead we look at the R-squared values for the models and compare them:
+r.squaredGLMM(model4)
+r.squaredGLMM(model5)
+r.squaredGLMM(model6)
+
+#According to the R-squared values for the models (R2m) which tells us how much variance the models explain, model6 is the model that best described the children's linguistic trajectory so far. 
+
+#We make a new model and see if the model improves. We add unique words (types_CHI) as a main effect
+model7 <-  lmer(CHI_MLU ~ VISIT*Diagnosis*ExpressiveLangRaw + types_CHI + (1|SUBJ) + (0+VISIT|SUBJ), data = data)
+
+anova(model6, model7)
+
+#We can see that model7 is signifcantly better than model6 at explaining the data. 
+#We make a new model 
+model8 <-  lmer(CHI_MLU ~ VISIT*Diagnosis*ExpressiveLangRaw*types_CHI + (1|SUBJ) + (0+VISIT|SUBJ), data = data)
+
+#This is telling us that the development of time (VISIT) is interacted with the diagnosis which is somehow #also modulated by verbal IQ (epressivelangraw) and the number of unique words (types_CHI)
+
+#NB! when we say 0 instead of 1 we are telling the model that VISIT is our intercept which means that we 
+#do not get an estimation of the slope but only the intercept
+
+
+anova(model7, model8)
+
+#Again, we can see that model 8 is better than model 7.
+
+#We find the R-squared values for model 8
+r.squaredGLMM(model8)
+
+summary(model8)
+
+#We can see that model 8 explains 83% of the variance in the data, which is pretty good. However, 
+#we have included three-way interactions, which is pretty hard to interpret, which means that 
+#it is a complex model.
+
+```
+
+In addition to the number of visits, the MLU of the children is also correlated with their diagnosis, their verbal intelligence (expressiveLangRaw) and the number of unique words. 
+Using AIC / nested F-tests as a criterium, we compared models of increasing complexity and found that ...
+
+In addition to Diagnosis and Visit, the MLU of the children can also be predicted by the interaction between the aforementioned predictors and verbal intelligence and unique words.
+Using AIC and R^2 values as a criterium for model optimation, we compared models of increasing complexity and found that model 8 (CHI_MLU ~ VISIT * Diagnosis * ExpressiveLangRaw * types_CHI + (1 | SUBJ) + (0 + VISIT | SUBJ)) had the lowest AIC value (108.53) and the fixed effects could explain 82.87% of the varrience in the data.
