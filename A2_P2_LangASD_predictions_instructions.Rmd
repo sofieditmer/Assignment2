@@ -9,10 +9,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(pacman)
-p_load(ggplot2, tidyverse, lme4, lmerTest, caret)
+p_load(ggplot2, tidyverse, lme4, lmerTest, caret, MuMIn)
 
-install.packages("MuMIn")
-library(MuMIn)
+
 ```
 
 ## Welcome to the second exciting part of the Language Development in ASD exercise
@@ -287,13 +286,13 @@ mean(RMSETest) #0.45
 sd(merged_data$CHI_MLU)
 
 #Results:
-#The null-model performs good on training (RMSE = 0.35) but seems to overfit the data, since the RMSE-value increases once the null-model is applied on new test data (RMSE = 0.76). The alternative model performs well on training (RMSE = 0.3), and once the model is applied to new data (test-data) the RMSE-values does not increase much (RMSE = 0.45). Generally, models are assumed to be "a good fit" if their RMSE-values are lower than the standard deviation of the mean, which is 0.93. Since the RMSE-value our alternative model estimates on the test-set is lower than the standard deviation of the mean (0.93), we conclude that this model is relatively efficient at predicting new data. 
+#The null-model performs well on training (RMSE = 0.35) but seems to overfit the data, since the RMSE-value increases once the null-model is applied on new test data (RMSE = 0.76). The alternative model performs well on training (RMSE = 0.3), and once the model is applied to new data (test-data) the RMSE-values does not increase much (RMSE = 0.45). Generally, models are assumed to be "a good fit" if their RMSE-values are lower than the standard deviation of the mean, which is 0.93. Since the RMSE-value our alternative model estimates on the test-set is lower than the standard deviation of the mean (0.93), we conclude that this model is relatively efficient at predicting new data. 
 
 # Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
 # Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
 ```
 
-[HERE GOES YOUR ANSWER]
+The null-model performs well on training (RMSE = 0.35) but seems to overfit the data, since the RMSE-value increases once the null-model is applied on new test data (RMSE = 0.76). The alternative model performs well on training (RMSE = 0.3), and once the model is applied to new data (test-data) the RMSE-values does not increase much (RMSE = 0.45). Generally, models are assumed to be "a good fit" if their RMSE-values are lower than the standard deviation of the mean, which is 0.93. Since the RMSE-value our alternative model estimates on the test-set is lower than the standard deviation of the mean (0.93), we conclude that this model is relatively efficient at predicting new data. 
 
 ### Exercise 3) Assessing the single child
 
@@ -308,11 +307,173 @@ You want to evaluate:
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
 
 ```{r}
+#First we make a dataframe for Bernie
+Bernie <- filter(LU_test, LU_test$SUBJ == "Bernie.")
+
+#First, we make a dataframe with all of the TD-kids only
+TD_kids <- filter(merged_data, merged_data$Diagnosis == "TD")
+
+#Now we filter them according to visits
+TD_kids_visit1 <- filter(TD_kids, TD_kids$Visit == 1)
+TD_kids_visit2 <- filter(TD_kids, TD_kids$Visit == 2)
+TD_kids_visit3 <- filter(TD_kids, TD_kids$Visit == 3)
+TD_kids_visit4 <- filter(TD_kids, TD_kids$Visit == 4)
+TD_kids_visit5 <- filter(TD_kids, TD_kids$Visit == 5)
+TD_kids_visit6 <- filter(TD_kids, TD_kids$Visit == 6)
+
+#Now we make a new column in each dataset with the mean MLU for each visit
+TD_kids_visit1$mean_CHI_MLU <- mean(TD_kids_visit1$CHI_MLU)
+TD_kids_visit2$mean_CHI_MLU <- mean(TD_kids_visit2$CHI_MLU)
+TD_kids_visit3$mean_CHI_MLU <- mean(TD_kids_visit3$CHI_MLU)
+TD_kids_visit4$mean_CHI_MLU <- mean(TD_kids_visit4$CHI_MLU)
+TD_kids_visit5$mean_CHI_MLU <- mean(TD_kids_visit5$CHI_MLU)
+TD_kids_visit6$mean_CHI_MLU <- mean(TD_kids_visit6$CHI_MLU)
+
+#Now we have to make a dataset for Bernie for each visit
+Bernie_visit1 <- filter(Bernie, Bernie$VISIT == "Visit1.")
+Bernie_visit2 <- filter(Bernie, Bernie$VISIT == "Visit2.")
+Bernie_visit3 <- filter(Bernie, Bernie$VISIT == "visit3.")
+Bernie_visit4 <- filter(Bernie, Bernie$VISIT == "visit4.")
+Bernie_visit5 <- filter(Bernie, Bernie$VISIT == "Visit5.")
+Bernie_visit6 <- filter(Bernie, Bernie$VISIT == "Visit6.")
+
+#We calculate the absolute difference between Bernie's MLU at each visit and the average TD-child at each visit
+
+#Aboslute difference for visit 1 
+mean(TD_kids_visit1$CHI_MLU)-Bernie_visit1$CHI_MLU
+#This shows that Bernie has a higher MLU than the average TD kid for visit 1
+
+#Aboslute difference for visit 2
+mean(TD_kids_visit2$CHI_MLU)-Bernie_visit2$CHI_MLU
+#This shows that Bernie has a higher MLU than the average TD kid for visit 2
+
+#Aboslute difference for visit 3 
+mean(TD_kids_visit3$CHI_MLU)-Bernie_visit3$CHI_MLU
+#This shows that Bernie has a higher MLU than the average TD kid for visit 3
+
+#Aboslute difference for visit 4
+mean(TD_kids_visit4$CHI_MLU)-Bernie_visit4$CHI_MLU
+#This shows that Bernie has a higher MLU than the average TD kid for visit 4
+
+#Aboslute difference for visit 5 
+mean(TD_kids_visit5$CHI_MLU)-Bernie_visit5$CHI_MLU
+#This shows that Bernie has a higher MLU than the average TD kid for visit 5
+
+#Aboslute difference for visit 6
+mean(TD_kids_visit6$CHI_MLU)-Bernie_visit6$CHI_MLU
+#This shows that Bernie has a higher MLU than the average TD kid for visit 1
+
+#In order to make a plot where we can compare Bernie's MLU at each visit with the average TD-child's MLU at each visit, we need to make a merged dataset where we have both Bernie's data and the average TD-children's data
+Bernie <- rename(Bernie, Child.ID=SUBJ)
+
+#We also rename the column visit
+Bernie <- rename(Bernie, Visit=VISIT)
+
+#We remove the punctuations
+Bernie$Visit <- str_replace_all(Bernie$Visit, "[:punct:]", "")
+
+#We remove all of the strings from the VISIT column so it only gives us numbers and no letters
+Bernie$Visit <- str_extract(Bernie$Visit, "\\d")
+
+#Now we take the columns that we need and make a new data frame
+TD_clean <- select(TD_kids, Child.ID, Visit, Diagnosis, CHI_MLU)
+
+#We need to make the Child.ID column into a character so it matches Bernie
+TD_clean$Child.ID <- as.character(TD_clean$Child.ID)
+
+#We take the columns we need from the Bernie dataframe
+Bernie_clean <- select(Bernie, Child.ID, Visit, Diagnosis, CHI_MLU)
+
+#We add the column Diagnosis to Bernie (we know that he is an ASD)
+Bernie_clean$Diagnosis <- "ASD"
+
+#We make the Diagnosis into a factor
+Bernie_clean$Diagnosis <- as.factor(Bernie$Diagnosis)
+
+#Now we can merge the two dataframes
+Bernie_TD <- rbind(TD_clean, Bernie_clean)
+
+#Now we make a plot because now we have both Bernie's data and all of the other data in ONE dataframe
+ggplot(data = Bernie_TD, aes(x=Visit, y=CHI_MLU, group=Diagnosis, color = Diagnosis )) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  theme_classic()
+
+#Now we can compare the MLU of Bernie with the average MLU of the TD kids for each visit.
 
 ```
 
-
 [HERE GOES YOUR ANSWER]
+Overall Bernie has a higher MLU at each visit compared to the average TD-kid. He starts out with a value of 0.67 morphemes higher at first visit and develops faster than the TD kids for each visit, which can be seen by the fact that he ends out speaking 1.53 morphemes more than the average TD kid in the end.
+
+
+```{r}
+#Now we need to make predictions: how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child). 
+
+#First we need to make a dataframe with all of the columns we need for Bernie. We filter Bernie's data from LU_test, token_test, and Demo_test.
+LU_Bernie <- filter(LU_test, LU_test$SUBJ == "Bernie.")
+Token_Bernie <- filter(token_test, token_test$SUBJ == "Bernie.")
+Demo_Bernie <- filter(demo_test, demo_test$Child.ID == "Bernie")
+
+#Now we need to rename the columns
+Demo_Bernie <- rename(Demo_Bernie, SUBJ = Child.ID)
+Demo_Bernie <- rename(Demo_Bernie, VISIT = Visit)
+
+#We remove punctations and letters
+Token_Bernie$VISIT <- str_extract(Token_Bernie$VISIT, "\\d")
+LU_Bernie$VISIT <- str_extract(LU_Bernie$VISIT, "\\d")
+
+Token_Bernie$VISIT <- str_replace_all(Token_Bernie$VISIT, "[:punct:]", "")
+LU_Bernie$VISIT <- str_replace_all(LU_Bernie$VISIT, "[:punct:]", "")
+
+Demo_Bernie$SUBJ <- str_replace_all(Demo_Bernie$SUBJ, "[:punct:]", "")
+LU_Bernie$SUBJ <- str_replace_all(LU_Bernie$SUBJ, "[:punct:]", "")
+Token_Bernie$SUBJ <- str_replace_all(Token_Bernie$SUBJ, "[:punct:]", "")
+
+#Now we merge these dataframes into one
+Bernie_all_data <- merge(LU_Bernie, Token_Bernie)
+Bernie_all_data <-merge(Bernie_all_data, Demo_Bernie)
+
+#Now we remove letters and leave the numbers in the visit column
+Bernie_all_data$VISIT <- str_extract(Bernie_all_data$VISIT, "\\d")
+
+#We rename columns and do some other necessary stuff
+Bernie_all_data <- rename(Bernie_all_data, Child.ID = SUBJ, Visit = VISIT)
+
+Bernie_all_data$Diagnosis <- "ASD"
+
+Bernie_all_data$Diagnosis <- as.factor(Bernie_all_data$Diagnosis)
+
+Bernie_all_data$Visit <- as.integer(Bernie_all_data$Visit)
+
+#We select the columns we need
+Bernie_all_data <- select(Bernie_all_data, Child.ID, Visit, Diagnosis, ExpressiveLangRaw, types_CHI, CHI_MLU)
+
+#We create a subset where we have removed all of the NAs from the columns where there are NAs
+Bernie_all_data <- subset(Bernie_all_data, !is.na(CHI_MLU))
+
+Bernie_all_data <- subset(Bernie_all_data, !is.na(ExpressiveLangRaw))
+
+#We "train" the model on the merged data
+prediction_model <- lmer(CHI_MLU ~ Visit*Diagnosis*ExpressiveLangRaw*types_CHI + (1|Child.ID) + (0+Visit|Child.ID), data = merged_data)
+
+#We test the model on Bernie's data using the predict() function
+train_Bernie <- predict(prediction_model, newdata=Bernie_all_data, allow.new.levels = TRUE)
+
+#We find the difference between the predicted values and the actual values
+RMSE_bernie=rmse(Bernie_all_data$CHI_MLU, train_Bernie)
+
+RMSE_bernie #0.40
+
+#In order to assess how good this number is we need to calculate the standard deviation of the mean of Bernie's data
+sd(Bernie_all_data$CHI_MLU) #1.04
+
+#Because the rmse-value for the predicted values using Bernie's data is much lower than the standard deviation of the mean, we can conclude that our model is good at predicting Bernie's data 
+
+````
+
+#ANSWER
+The predictions for Bernie seem to be good, as the RMSE value is 0.4, which is much lower than the standard deviation of the mean (SD = 1.04), which is the NULL-model.
 
 ### OPTIONAL: Exercise 4) Model Selection via Information Criteria
 Another way to reduce the bad surprises when testing a model on new data is to pay close attention to the relative information criteria between the models you are comparing. Let's learn how to do that!
