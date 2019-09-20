@@ -382,13 +382,10 @@ TD_clean <- select(TD_kids, Child.ID, Visit, Diagnosis, CHI_MLU)
 TD_clean$Child.ID <- as.character(TD_clean$Child.ID)
 
 #We take the columns we need from the Bernie dataframe
-Bernie_clean <- select(Bernie, Child.ID, Visit, Diagnosis, CHI_MLU)
+Bernie_clean <- select(Bernie, Child.ID, Visit, CHI_MLU)
 
 #We add the column Diagnosis to Bernie (we know that he is an ASD)
 Bernie_clean$Diagnosis <- "ASD"
-
-#We make the Diagnosis into a factor
-Bernie_clean$Diagnosis <- as.factor(Bernie$Diagnosis)
 
 #Now we can merge the two dataframes
 Bernie_TD <- rbind(TD_clean, Bernie_clean)
