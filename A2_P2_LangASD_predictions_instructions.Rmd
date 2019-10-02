@@ -96,8 +96,8 @@ CleanUpData <- function(Demo,LU,Word){
          "1" = "M",
          "2" = "F"),
       Diagnosis = recode(Diagnosis,
-         "A"  = "TD",
-         "B"  = "ASD")
+         "A"  = "ASD",
+         "B"  = "TD")
     )
 
   return(Data)
@@ -321,14 +321,6 @@ TD_kids_visit4 <- filter(TD_kids, TD_kids$Visit == 4)
 TD_kids_visit5 <- filter(TD_kids, TD_kids$Visit == 5)
 TD_kids_visit6 <- filter(TD_kids, TD_kids$Visit == 6)
 
-#Now we make a new column in each dataset with the mean MLU for each visit
-TD_kids_visit1$mean_CHI_MLU <- mean(TD_kids_visit1$CHI_MLU)
-TD_kids_visit2$mean_CHI_MLU <- mean(TD_kids_visit2$CHI_MLU)
-TD_kids_visit3$mean_CHI_MLU <- mean(TD_kids_visit3$CHI_MLU)
-TD_kids_visit4$mean_CHI_MLU <- mean(TD_kids_visit4$CHI_MLU)
-TD_kids_visit5$mean_CHI_MLU <- mean(TD_kids_visit5$CHI_MLU)
-TD_kids_visit6$mean_CHI_MLU <- mean(TD_kids_visit6$CHI_MLU)
-
 #Now we have to make a dataset for Bernie for each visit
 Bernie_visit1 <- filter(Bernie, Bernie$VISIT == "Visit1.")
 Bernie_visit2 <- filter(Bernie, Bernie$VISIT == "Visit2.")
@@ -451,19 +443,22 @@ Bernie_all_data <- subset(Bernie_all_data, !is.na(CHI_MLU))
 
 Bernie_all_data <- subset(Bernie_all_data, !is.na(ExpressiveLangRaw))
 
+#We only want to make predictions for visit 6
+Bernie_visit6 <- filter(Bernie_all_data, Visit == 6)
+
 #We "train" the model on the merged data
 prediction_model <- lmer(CHI_MLU ~ Visit*Diagnosis*ExpressiveLangRaw*types_CHI + (1|Child.ID) + (0+Visit|Child.ID), data = merged_data)
 
 #We test the model on Bernie's data using the predict() function
-train_Bernie <- predict(prediction_model, newdata=Bernie_all_data, allow.new.levels = TRUE)
+train_Bernie <- predict(prediction_model, newdata=Bernie_visit6, allow.new.levels = TRUE)
 
 #We find the difference between the predicted values and the actual values
-RMSE_bernie=rmse(Bernie_all_data$CHI_MLU, train_Bernie)
+RMSE_bernie=rmse(Bernie_visit6$CHI_MLU, train_Bernie)
 
-RMSE_bernie #0.40
+RMSE_bernie 
 
 #In order to assess how good this number is we need to calculate the standard deviation of the mean of Bernie's data
-sd(Bernie_all_data$CHI_MLU) #1.04
+sd(Bernie_all_data$CHI_MLU) 
 
 #Because the rmse-value for the predicted values using Bernie's data is much lower than the standard deviation of the mean, we can conclude that our model is good at predicting Bernie's data 
 

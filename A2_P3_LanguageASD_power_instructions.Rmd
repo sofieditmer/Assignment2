@@ -1,0 +1,279 @@
+---
+title: "Assignment 2 - Language Development in ASD - Part 3 - Power and simulations"
+author: "Sofie Ditmer"
+date: "26.09.19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+install.packages("simr", dependencies = TRUE)
+
+library(pacman)
+
+p_load(tidyverse, lme4, ggplot2, caret, MuMIn, lmerTest, stringr, knitr, simr)
+
+```
+
+## Welcome to the third exciting part of the Language Development in ASD exercise
+
+In this part of the assignment, we try to figure out how a new study should be planned (i.e. how many participants?) in order to have enough power to replicate the findings (ensuring our sample size is adequate, our alpha at 0.05 and our beta at 0.8):
+
+1- if we trust the estimates of the current study. Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+2- if we are skeptical of the current study. Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+3- if we only have access to 30 participants. Identify the power for each relevant effect and discuss whether it's worth to run the study and why
+
+The list above is also what you should discuss in your code-less report.
+
+
+## Learning objectives
+
+- Learn how to calculate statistical power
+- Critically appraise how to apply frequentist statistical power
+
+### Exercise 1
+
+How much power does your study have (if your model estimates are quite right)?
+- Load your dataset (both training and testing), fit your favorite model, assess power for your effects of interest (probably your interactions).
+
+```{r}
+##LOAD DATA##
+#Before I begin the assignment, I take the code-lines for part 2 in order to get a merged data set consisting of our train set and our test set
+
+pacman::p_load(readr,dplyr,stringr,lmerTest,Metrics,caret)
+
+## Clean up function, included to inspire you. This function is used to clean up the data. 
+
+CleanUpData <- function(Demo,LU,Word){
+  
+  Speech <- merge(LU, Word) %>% 
+    rename(
+      Child.ID = SUBJ, 
+      Visit=VISIT) %>%
+    mutate(
+      Visit = as.numeric(str_extract(Visit, "\\d")),
+      Child.ID = gsub("\\.","", Child.ID)
+      ) %>%
+    dplyr::select(
+      Child.ID, Visit, MOT_MLU, CHI_MLU, types_MOT, types_CHI, tokens_MOT, tokens_CHI
+    )
+  
+  Demo <- Demo %>%
+    dplyr::select(
+      Child.ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS, MullenRaw, ExpressiveLangRaw, Socialization
+    ) %>%
+    mutate(
+      Child.ID = gsub("\\.","", Child.ID)
+    )
+    
+  Data=merge(Demo,Speech,all=T)
+  
+  Data1= Data %>% 
+     subset(Visit=="1") %>% 
+     dplyr::select(Child.ID, ADOS, ExpressiveLangRaw, MullenRaw, Socialization) %>%
+     rename(Ados1 = ADOS, 
+            verbalIQ1 = ExpressiveLangRaw, 
+            nonVerbalIQ1 = MullenRaw,
+            Socialization1 = Socialization) 
+  
+  Data=merge(Data, Data1, all=T) %>%
+    mutate(
+      Child.ID = as.numeric(as.factor(as.character(Child.ID))),
+      Visit = as.numeric(as.character(Visit)),
+      Gender = recode(Gender, 
+         "1" = "M",
+         "2" = "F"),
+      Diagnosis = recode(Diagnosis,
+         "A"  = "ASD",
+         "B"  = "TD")
+    )
+
+  return(Data)
+}
+
+
+#Now that I have run the function that Riccardo has created, I can now use it to clean up my data.
+#First, I load all of the data, in order to clean it with the function:
+
+#Training data
+LU_train <- read.csv("LU_train.csv")
+demo_train <- read.csv("demo_train.csv")
+token_train <- read.csv("token_train.csv")
+
+#Testing data
+LU_test <- read.csv("LU_test.csv")
+demo_test <- read.csv("demo_test.csv")
+token_test <- read.csv("token_test.csv")
+
+#Now that we have loaded all of both the training data and the test data, we can clean it using Riccardos function
+
+#Cleaning up the train data
+train_data <- CleanUpData(demo_train, LU_train, token_train)
+
+#Now we need to exclude all of the NAs (missing data points) for CHI_MLU
+train_data <- subset(train_data, !is.na(CHI_MLU))
+
+#Now we clean up the test data
+test_data <- CleanUpData(demo_test, LU_test, token_test)
+
+#Now we need to exclude all of the NAs (missing data points) for CHI_MLU
+test_data <- subset(test_data, !is.na(CHI_MLU))
+
+#Before we can merge the train_data and the test_data we need to make sure that the ID's do not overlap, because the names/numbers are the same in the two datasets even though they are different children. Therefore, we add an arbitrary number (e.g. 1000) to the IDs of the test data to separate them from the train data.
+
+test_data$Child.ID <- as.integer(test_data$Child.ID)
+
+test_data$Child.ID <- test_data$Child.ID+1000
+
+#Now we can merge using the rbind() function our train_data with our test_data in order to get a full dataset that we then can split into folds
+
+merged_data <- rbind(train_data, test_data)
+
+```
+
+
+```{r}
+##FIT MODEL##
+#We fit our model on the merged data
+merged_data$Child.ID <- as.factor(merged_data$Child.ID)
+
+model <- lmer(CHI_MLU ~ Visit+Diagnosis + (1+Visit|Child.ID), data = merged_data)
+
+#ASSESS POWER: Power Analysis##
+#We assess power for our effects of interest - we run the powerSim function for each effect of interest
+powerSim(model, test = fixed("Visit"), nsim = 50)
+
+powerSim(model, test = fixed("Diagnosis"), nsim = 50)
+
+#Using the model, lmer(CHI_MLU ~ Visit+Diagnosis + (1+Visit|Child.ID), data = merged_data), we tested power with 50 simulations and then 200 simulations for the fixed effects "Visit" and "Diagnosis". We got a power of 100% for the fixed effect of Visit (conf = 98.17, 100.0 with an significant effect size of 0.23) and a power of 41% for the fixed effect of Diagnosis (conf = 34.11, 48.16 with a significant effect size of 0.23). This means that we for Visit have a 100% chance of detecting an effect if it exists (given that the null-hypothesis is true) and a 41% chance for Diagnosis and thus a 69% risk of not having enough power to detect an effect if an effect exists. 
+
+#Now we rerun the power analysis with more simulations (200 for each effect) for each effect, in order to get a more precise estimate of the power of each effect
+powerSim(model, test = fixed("Visit"), nsim = 200)
+
+powerSim(model, test = fixed("Diagnosis"), nsim = 200)
+
+
+```
+
+- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+Using the model, lmer(CHI_MLU ~ Visit+Diagnosis + (1+Visit|Child.ID), data = merged_data), we tested power with 50 simulations and then 200 simulations for the fixed effects "Visit" and "Diagnosis". We got a power of 100% for the fixed effect of Visit (conf = 98.17, 100.0 with an significant effect size of 0.23) and a power of 41% for the fixed effect of Diagnosis (conf = 34.11, 48.16 with a significant effect size of 0.23). This means that we for Visit have a 100% chance of detecting an effect if it exists (given that the null-hypothesis is true) and a 41% chance for Diagnosis and thus a 69% risk of not having enough power to detect an effect if an effect exists. 
+
+- Test how many participants you would have to have to replicate the findings (assuming the findings are correct)
+```{r}
+#First we extend our model to include 500 participants.
+powerCurveModel <- extend(model, along="Child.ID", n=500)
+
+#Now we want to see how many participants we need to get a power of 80% (this is an arbitrary threshold). The powerCurve function creates a coordinate system with power on the y-axis and participants on the x-axis. At some point the curve will reach the 80% power, and the x-axis will then indicate how many participants we need. 
+pc <- powerCurve(powerCurveModel, along="Child.ID")
+
+plot(pc)
+
+#What we can see from the powercurve is that we will need a minimum of 9-10 participants in order to have a power of 80%
+```
+
+N.B. Remember that main effects are tricky once you have interactions in the model (same for 2-way interactions w 3-way interactions in the model). If you want to test the power of main effects, run a model excluding the interactions.
+N.B. Check this paper: https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.12504
+
+You will be using:
+- powerSim() to calculate power
+- powerCurve() to estimate the needed number of participants
+- extend() to simulate more participants
+
+
+### Exercise 2
+
+How would you perform a more conservative power analysis?
+- Identify and justify a minimum effect size for each of your relevant effects
+- take the model from exercise 1 and replace the effects with the minimum effect size that you'd accept.
+- assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
+- if your power estimates do not reach an acceptable threshold simulate additional participants and repeat the previous analysis
+- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+```{r}
+#From our power analysis on the fixed effect Visit we got an effect size of 0.23 and a power of 100%. This means that we need to try with a smaller effect size in order to get the minimum effect size and still have a power of about 80%.
+#Thus, we try to assign the effect size of Visit values below 0.23 and see what the power will be
+
+fixef(model)["Visit"] <- 0.072
+
+summary(model)
+
+powerSim(model, test = fixed("Visit"), nsim=50)
+
+#When we assign an effect size of 0.072 to the fixed effect Visit, we get a power of 92% and a confidence interval between 80.77% and 97.78%. This means that when we run 50 simulations we will minimally get a power of 80% which, and thus 0.072 is our minimum effect size. 
+
+#Now we have to find the minimum effect size for our fixed effect Diagnosis
+
+merged_data$Diagnosis <- as.numeric(merged_data$Diagnosis)
+
+fixef(model)["Diagnosis"] <- 0.5
+
+summary(model)
+
+powerSim(model, test = fixed("Diagnosis"), nsim=50)
+
+#When using an effect size of 0.5 for the fixed effect Diagnosis we get a power of 92% with a confidence interval between 80.77 and 97.78. Thus, 0.5 is our minimum effect size, becuase this ensures that we will always have a power of at least 80%
+
+#Now that we have determined the minumum effect sizes we can run the powerCurve again
+powerCurveModel <- extend(model, along="Child.ID", n=500)
+
+pc <- powerCurve(powerCurveModel, along="Child.ID")
+
+plot(pc)
+
+#From the powercurve we can see that we need at least 60 participants in order to have a power of 80%. Because we have used the minimum effect sizes we need more participants in order to get a power of 80%.
+
+```
+- Report the power analysis and comment on what you can (or cannot) use its estimates for.
+When we use our minimal effect sizes for our fixed effects (Visit and Diagnosis) we need at least 60 participants in order to get a power of 80%. This means that in 20% of the simulations we will not have enough power to find an effect (it an effect exists). By using minumum effect sizes, the number of participants we need to have a power of at least 80% increases, which reflects the fact that when effects sizes are smaller we need more participants (a larger sample size) in order to get the appropriate power.
+
+
+### Exercise 3
+
+Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why
+
+```{r}
+#We need to take 30 kids from our data, and still have a representative sample consisting of both TD and ASD kids.
+#First we make two dataframe - one with only TD kids and one with only ASD kids
+TD_kids <- filter(merged_data, Diagnosis == "2")
+ASD_kids <- filter(merged_data, Diagnosis == "2")
+
+#Now we need to take 15 ASD kids and 15 TD kids and merge them into one dataframe
+TD_kids <- TD_kids[1:86,]
+ASD_kids <- ASD_kids[1:88,]
+
+#Now we rbind these two dataframes
+thirty_kids <- rbind(TD_kids, ASD_kids)
+
+#Now we run the model using only thirty kids
+model_thirtykids <- lmer(CHI_MLU ~ Visit+Diagnosis + (1+Visit|Child.ID), data = thirty_kids)
+
+summary(model_thirtykids)
+
+#Now we can identify the power for each effect
+powerSim(model_thirtykids, test = fixed("Visit"), nsim = 50)
+
+powerSim(model_thirtykids, test = fixed("Diagnosis"), nsim = 50)
+
+```
+Answer
+When using only 30 kids (15 ASD, 15 TD) we get a power of 20% (confidence interval: 10.03, 33.72) for Diagnosis and a power of 100% for Visit (confidence interval: 10.03, 33.72). Based on these values we can decide that Diagnosis has too low a power and therefore the study does not make much sense, as we will not be able to detect any effect of diagnosis because we do not have enough power, eventhough it might be there.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
