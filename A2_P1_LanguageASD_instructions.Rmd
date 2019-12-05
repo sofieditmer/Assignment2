@@ -1,6 +1,6 @@
 ---
 title: "Assignment 2 - Language Development in ASD - Part 1 - Explaining development"
-author: "Sofie Ditmer"
+author: "Sofie Ditmer" "- gamle version"
 date: "12.09.19"
 output: html_document
 ---
@@ -75,7 +75,7 @@ Load necessary libraries : what will you need?
 
 ```{r Load Libraries, include = FALSE}
 library(pacman)
-p_load(ggplot2, tidyverse, lme4, lmerTest, caret)
+p_load(ggplot2, tidyverse, lme4, lmerTest, caret, dplyr)
 
 install.packages("MuMIn")
 library(MuMIn)
@@ -132,6 +132,9 @@ group_by(visit1_data, Diagnosis) %>%
     verbal_iq = mean(ExpressiveLangRaw, na.rm = T),
     NumberOfWords = mean(tokens_CHI, na.rm = T),
     NumberOfUniqueWords = mean(types_CHI, na.rm = T))
+
+#Standard error of age
+sd(data$Age, na.rm = T)
     
 ```
 

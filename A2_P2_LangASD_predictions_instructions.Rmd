@@ -117,7 +117,7 @@ LU_test <- read.csv("LU_test.csv")
 demo_test <- read.csv("demo_test.csv")
 token_test <- read.csv("token_test.csv")
 
-#Now that we have loaded all of both the training data and the test data, we can clean it using Riccardos function
+#Now that we have loaded all of both the training data and the test data, we can clean it using Riccardos function.
 
 #Cleaning up the train data
 train_data <- CleanUpData(demo_train, LU_train, token_train)
